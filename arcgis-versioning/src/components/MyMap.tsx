@@ -9,13 +9,12 @@ import { useApp } from '../context/appContext'
 import Point from '@arcgis/core/geometry/Point'
 import * as geometryEngineAsync from '@arcgis/core/geometry/geometryEngineAsync.js'
 import Polygon from '@arcgis/core/geometry/Polygon.js'
-import GroupLayer from '@arcgis/core/layers/GroupLayer'
 import LayerView from '@arcgis/core/views/layers/LayerView'
 import * as reactiveUtils from '@arcgis/core/core/reactiveUtils.js'
 import AllUiComponent from './AllUiComponent'
 import Expand from '@arcgis/core/widgets/Expand'
 import { createRoot } from 'react-dom/client'
-import { debounce } from 'lodash'
+// import { debounce } from 'lodash'
 // let buffering = false
 
 const polySym = {
@@ -43,9 +42,6 @@ function MyMap() {
     <AllUiComponent dispatch={dispatch} state={state} />
   )
   const mapRef = useRef<HTMLDivElement>(null)
-  const [groupLayer, setGroupLayer] = useState<__esri.GroupLayer>(
-    new GroupLayer()
-  )
   const [view, setView] = useState<__esri.MapView>(new MapView())
   const [structureLayerView, setStructureLayerView] =
     useState<__esri.LayerView>(new LayerView())
@@ -91,7 +87,7 @@ function MyMap() {
           } as __esri.PortalItem,
         }).then((layer) => {
           layer.load().then((l: __esri.GroupLayer) => {
-            setGroupLayer(() => l)
+            // setGroupLayer(() => l)
             view.map.addMany([l])
             view
               .whenLayerView(l.layers.getItemAt(2))
@@ -112,11 +108,13 @@ function MyMap() {
     view.ui.add(layerList, 'top-right')
     view.ui.add(expand, 'top-left')
     dispatch({ type: 'SET_ENABLE_SNAPPING', payload: false })
+    dispatch({ type: 'SET_MAP_VIEW', payload: view })
     return () => {
       if (view) {
         view.destroy()
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   useEffect(() => {
     const addPoint = (point: __esri.Point) => {
@@ -288,7 +286,15 @@ function MyMap() {
     return () => {
       pointerEvent.remove()
     }
-  }, [dispatch, foundFeatures, state.distance, state.enableSnapping])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    dispatch,
+    foundFeatures,
+    state.distance,
+    state.enableSnapping,
+    structureLayerView,
+    view,
+  ])
   return (
     <div>
       <div className='MyMap' ref={mapRef}></div>

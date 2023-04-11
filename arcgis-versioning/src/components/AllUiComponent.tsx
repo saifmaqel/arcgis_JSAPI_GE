@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react'
-import { useApp, AppActionType, InitialStateType } from '../context/appContext'
+import React, { useState, useCallback } from 'react'
+import { AppActionType, InitialStateType } from '../context/appContext'
 
 type inputFieldsType = {
   distance: number
@@ -11,7 +11,7 @@ type AllUiComponentProps = {
   state: InitialStateType
 }
 
-function AllUiComponent({ dispatch, state }: AllUiComponentProps) {
+const AllUiComponent = ({ dispatch, state }: AllUiComponentProps) => {
   const [inputFields, setInputFields] = useState<inputFieldsType>({
     distance: state.distance,
     enableSnapping: state.enableSnapping,
@@ -20,18 +20,24 @@ function AllUiComponent({ dispatch, state }: AllUiComponentProps) {
     dispatch({ type: 'SET_DISTANCE', payload: inputFields.distance })
   }, [dispatch, inputFields.distance])
 
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = event.target
-    if (event.target.name === 'enableSnapping') {
-      const updatedEnableSnapping = !inputFields.enableSnapping
-      setInputFields({ ...inputFields, enableSnapping: updatedEnableSnapping })
-      dispatch({
-        type: 'SET_ENABLE_SNAPPING',
-        payload: updatedEnableSnapping,
-      })
-    } else setInputFields({ ...inputFields, [name]: value })
-    // getData(inputFields.enableSnapping)
-  }
+  const handleInputChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, value } = event.target
+      if (event.target.name === 'enableSnapping') {
+        const updatedEnableSnapping = !inputFields.enableSnapping
+        setInputFields({
+          ...inputFields,
+          enableSnapping: updatedEnableSnapping,
+        })
+        dispatch({
+          type: 'SET_ENABLE_SNAPPING',
+          payload: updatedEnableSnapping,
+        })
+      } else setInputFields({ ...inputFields, [name]: value })
+      // getData(inputFields.enableSnapping)
+    },
+    [dispatch, inputFields]
+  )
 
   return (
     <div className='widget-component'>
