@@ -267,10 +267,10 @@ function MyMap() {
             addPoint(mapCursorPoint)
             addBuffer(mapCursorPoint)
           }
-          const deboucedQueryFeature = debounce(() => {
-            QueryFeature(structureLayerView, mapCursorPoint, state.distance)
-          })
-          deboucedQueryFeature()
+          // const deboucedQueryFeature = debounce(() => {
+          QueryFeature(structureLayerView, mapCursorPoint, state.distance)
+          // })
+          // deboucedQueryFeature()
           // const setCoordinates = debounce(() => {
           //   dispatch({
           //     type: 'SET_COORDINATES',
