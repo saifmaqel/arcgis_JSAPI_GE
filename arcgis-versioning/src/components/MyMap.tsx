@@ -14,7 +14,7 @@ import * as reactiveUtils from '@arcgis/core/core/reactiveUtils.js'
 import AllUiComponent from './AllUiComponent'
 import Expand from '@arcgis/core/widgets/Expand'
 import { createRoot } from 'react-dom/client'
-// import { debounce } from 'lodash'
+import { debounce } from 'lodash'
 // let buffering = false
 
 const polySym = {
@@ -28,10 +28,6 @@ const polySym = {
 const pointSym = {
   type: 'simple-marker', // autocasts as new SimpleMarkerSymbol()
   color: [37, 37, 37],
-  outline: {
-    color: [255, 255, 255],
-    width: 1,
-  },
   size: 7,
 }
 
@@ -43,8 +39,10 @@ function MyMap() {
   )
   const mapRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<__esri.MapView>(new MapView())
-  const [structureLayerView, setStructureLayerView] =
-    useState<__esri.LayerView>(new LayerView())
+  const [featureLayerViews, setFeatureLayerViews] = useState<
+    __esri.FeatureLayerView[]
+  >([])
+
   const [foundFeatures, setFoundFeatures] = useState<boolean>(false)
   const [mapCursorPointState, setMapCursorPointState] = useState<__esri.Point>(
     new Point()
@@ -87,20 +85,44 @@ function MyMap() {
           } as __esri.PortalItem,
         }).then((layer) => {
           layer.load().then((l: __esri.GroupLayer) => {
+            // view.whenLayerView(l).then((GLV) => {
+            //   console.log(GLV)
+            //   GLV as __esri.GroupeLayerView
+            // })
             // setGroupLayer(() => l)
             view.map.addMany([l])
-            view
-              .whenLayerView(l.layers.getItemAt(2))
-              .then((layerView: __esri.LayerView) => {
-                setStructureLayerView(() => layerView)
-                // view
-                //   .goTo(
-                //     { target: l.layers.getItemAt(0).fullExtent, zoom: 12 },
-                //     { animate: true }
-                //   )
-                //   .then((res) => {
-                //   })
+            l.layers.map((layer) => {
+              view.whenLayerView(layer).then((layerview: __esri.LayerView) => {
+                const featureLayerView =
+                  layerview.layer as unknown as __esri.FeatureLayerView
+                featureLayerViews.push(featureLayerView)
+                setFeatureLayerViews(featureLayerViews)
               })
+            })
+            // const featureLayerView = featureLayerViews.at(0)
+            // if (featureLayerView && !featureLayerView.destroyed) {
+            //   featureLayerView
+            //     .queryExtent()
+            //     .then((ext) => {
+            //       view.goTo(ext)
+            //       console.log('ext', ext)
+            //     })
+            //     .catch((r) => console.log(r))
+            // }
+            // console.log(layerviews);
+
+            // view
+            //   .whenLayerView(l.layers.getItemAt(2))
+            //   .then((layerView: __esri.LayerView) => {
+            //     setLayerViews(() => layerView)
+            //     // view
+            //     //   .goTo(
+            //     //     { target: l.layers.getItemAt(0).fullExtent, zoom: 12 },
+            //     //     { animate: true }
+            //     //   )
+            //     //   .then((res) => {
+            //     //   })
+            //   })
           })
         })
       }
@@ -159,38 +181,75 @@ function MyMap() {
       ) as Promise<__esri.Polygon>
     }
     const QueryFeature = (
-      structureLayerView: __esri.LayerView,
+      featureLayerViews: __esri.FeatureLayerView[],
       mapCursorPoint: __esri.Point,
       distance: number
-      // pointLayer: __esri.GraphicsLayer,
-      // bufferLayer: __esri.GraphicsLayer
     ) => {
       // debounce(async () => {
-      const structureFeatureLayerView =
-        structureLayerView.layer as unknown as __esri.FeatureLayerView
-      structureFeatureLayerView
-        .queryFeatures({
-          geometry: mapCursorPoint,
-          returnGeometry: true,
-          spatialRelationship: 'contains',
-          distance: distance,
-          units: 'meters',
-        })
-        .then((featureSet: __esri.FeatureSet) => {
-          if (featureSet.features.length > 0) {
-            setFoundFeatures(true)
-            const cursorPointGraphic = view.graphics.getItemAt(0)
-            const bufferPolyGraphic = view.graphics.getItemAt(1)
-            cursorPointGraphic.geometry = featureSet.features[0].geometry
-            geometryEngineAsync
-              .buffer(featureSet.features[0].geometry, state.distance, 'meters')
-              .then((buffer) => {
-                bufferPolyGraphic.geometry = buffer as Polygon
-              })
-          } else setFoundFeatures(false)
-        })
+      featureLayerViews.map((FLV: __esri.FeatureLayerView) => {
+        // console.log(FLV)
+
+        if (!FLV.destroyed) {
+          FLV.queryFeatures({
+            geometry: mapCursorPoint,
+            returnGeometry: true,
+            spatialRelationship: 'intersects',
+            distance: distance,
+            units: 'meters',
+          })
+            .then((featureSet: __esri.FeatureSet) => {
+              if (featureSet.features.length > 0) {
+                console.log('found', foundFeatures)
+                setFoundFeatures(true)
+                console.log('found', foundFeatures)
+                const cursorPointGraphic = view.graphics.getItemAt(0)
+                const geometry = featureSet.features[0].geometry
+                if (
+                  geometry.type === 'polygon' ||
+                  geometry.type === 'polyline'
+                ) {
+                  geometryEngineAsync
+                    .nearestVertex(geometry, mapCursorPoint)
+                    .then((nearestVertex) => {
+                      setFoundFeatures(true)
+
+                      if (nearestVertex.distance <= state.distance) {
+                        addPoint(nearestVertex.coordinate)
+                        addBuffer(nearestVertex.coordinate)
+                      }
+                    })
+                } else if (geometry.type === 'point') {
+                  addPoint(geometry as __esri.Point)
+                  addBuffer(geometry as __esri.Point)
+                }
+              } else setFoundFeatures(false)
+            })
+            .catch((r) => console.log(r))
+        }
+      })
+      // structureFeatureLayerView
+      //   .queryFeatures({
+      //     geometry: mapCursorPoint,
+      //     returnGeometry: true,
+      //     spatialRelationship: 'contains',
+      //     distance: distance,
+      //     units: 'meters',
+      //   })
+      //   .then((featureSet: __esri.FeatureSet) => {
+      //     if (featureSet.features.length > 0) {
+      //       setFoundFeatures(true)
+      //       const cursorPointGraphic = view.graphics.getItemAt(0)
+      //       const bufferPolyGraphic = view.graphics.getItemAt(1)
+      //       cursorPointGraphic.geometry = featureSet.features[0].geometry
+      //       geometryEngineAsync
+      //         .buffer(featureSet.features[0].geometry, state.distance, 'meters')
+      //         .then((buffer) => {
+      //           bufferPolyGraphic.geometry = buffer as Polygon
+      //         })
+      //     } else setFoundFeatures(false)
+      //   })
     }
-    if (view.ready && state.enableSnapping) {
+    if (view.ready && state.enableSnapping && !foundFeatures) {
       addBuffer(mapCursorPointState)
       addPoint(mapCursorPointState)
     } else if (view.ready && !state.enableSnapping) {
@@ -251,8 +310,7 @@ function MyMap() {
     // )
     const pointerEvent = view.on(
       'pointer-move',
-      // debounce(
-      (event) => {
+      debounce((event) => {
         if (state.enableSnapping) {
           event.stopPropagation()
           const screenPoint = {
@@ -262,13 +320,14 @@ function MyMap() {
           const mapCursorPoint: __esri.Point = view.toMap(screenPoint)
           setMapCursorPointState(mapCursorPoint)
           if (mapCursorPoint && !foundFeatures) {
+            console.log('found inside event', foundFeatures)
             addPoint(mapCursorPoint)
             addBuffer(mapCursorPoint)
           }
-          // const deboucedQueryFeature = debounce(() => {
-          QueryFeature(structureLayerView, mapCursorPoint, state.distance)
-          // })
-          // deboucedQueryFeature()
+          const deboucedQueryFeature = debounce(() => {
+            QueryFeature(featureLayerViews, mapCursorPoint, state.distance)
+          })
+          deboucedQueryFeature()
           // const setCoordinates = debounce(() => {
           //   dispatch({
           //     type: 'SET_COORDINATES',
@@ -280,9 +339,8 @@ function MyMap() {
           // }, 100)
           // setCoordinates()
         }
-      }
+      })
     )
-    // )
     return () => {
       pointerEvent.remove()
     }
@@ -292,7 +350,7 @@ function MyMap() {
     foundFeatures,
     state.distance,
     state.enableSnapping,
-    structureLayerView,
+    featureLayerViews,
     view,
   ])
   return (
