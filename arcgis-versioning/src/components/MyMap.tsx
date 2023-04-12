@@ -8,8 +8,6 @@ import Graphic from '@arcgis/core/Graphic.js'
 import { useApp } from '../context/appContext'
 import Point from '@arcgis/core/geometry/Point'
 import * as geometryEngineAsync from '@arcgis/core/geometry/geometryEngineAsync.js'
-import Polygon from '@arcgis/core/geometry/Polygon.js'
-import LayerView from '@arcgis/core/views/layers/LayerView'
 import * as reactiveUtils from '@arcgis/core/core/reactiveUtils.js'
 import AllUiComponent from './AllUiComponent'
 import Expand from '@arcgis/core/widgets/Expand'
@@ -30,7 +28,7 @@ const pointSym = {
   color: [37, 37, 37],
   size: 7,
 }
-
+let foundOneFeatureAtLeast = 0
 function MyMap() {
   const { state, dispatch } = useApp()
   const container = document.createElement('div')
@@ -42,7 +40,6 @@ function MyMap() {
   const [featureLayerViews, setFeatureLayerViews] = useState<
     __esri.FeatureLayerView[]
   >([])
-
   const [foundFeatures, setFoundFeatures] = useState<boolean>(false)
   const [mapCursorPointState, setMapCursorPointState] = useState<__esri.Point>(
     new Point()
@@ -85,11 +82,6 @@ function MyMap() {
           } as __esri.PortalItem,
         }).then((layer) => {
           layer.load().then((l: __esri.GroupLayer) => {
-            // view.whenLayerView(l).then((GLV) => {
-            //   console.log(GLV)
-            //   GLV as __esri.GroupeLayerView
-            // })
-            // setGroupLayer(() => l)
             view.map.addMany([l])
             l.layers.map((layer) => {
               view.whenLayerView(layer).then((layerview: __esri.LayerView) => {
@@ -148,7 +140,6 @@ function MyMap() {
           })
         )
       } else {
-        // const graphic = pointLayer.graphics.getItemAt(0)
         const graphic = view.graphics.getItemAt(0)
         graphic.geometry = point
       }
@@ -161,10 +152,7 @@ function MyMap() {
             symbol: polySym,
           })
           view.graphics.add(graphic)
-          // bufferLayer.add(graphic)
         } else {
-          // bufferLayer.graphics.getItemAt(0).geometry =
-          //   buffer as __esri.Polygon
           view.graphics.getItemAt(1).geometry = buffer as __esri.Polygon
         }
       })
@@ -186,9 +174,8 @@ function MyMap() {
       distance: number
     ) => {
       // debounce(async () => {
+      foundOneFeatureAtLeast = 0
       featureLayerViews.map((FLV: __esri.FeatureLayerView) => {
-        // console.log(FLV)
-
         if (!FLV.destroyed) {
           FLV.queryFeatures({
             geometry: mapCursorPoint,
@@ -199,20 +186,16 @@ function MyMap() {
           })
             .then((featureSet: __esri.FeatureSet) => {
               if (featureSet.features.length > 0) {
-                console.log('found', foundFeatures)
-                setFoundFeatures(true)
-                console.log('found', foundFeatures)
-                const cursorPointGraphic = view.graphics.getItemAt(0)
+                // foundOneFeatureAtLeast +=1
                 const geometry = featureSet.features[0].geometry
                 if (
                   geometry.type === 'polygon' ||
                   geometry.type === 'polyline'
                 ) {
+                  // setFoundFeatures(true)
                   geometryEngineAsync
                     .nearestVertex(geometry, mapCursorPoint)
                     .then((nearestVertex) => {
-                      setFoundFeatures(true)
-
                       if (nearestVertex.distance <= state.distance) {
                         addPoint(nearestVertex.coordinate)
                         addBuffer(nearestVertex.coordinate)
@@ -222,11 +205,12 @@ function MyMap() {
                   addPoint(geometry as __esri.Point)
                   addBuffer(geometry as __esri.Point)
                 }
-              } else setFoundFeatures(false)
+              } else foundOneFeatureAtLeast -= 1
             })
             .catch((r) => console.log(r))
         }
       })
+
       // structureFeatureLayerView
       //   .queryFeatures({
       //     geometry: mapCursorPoint,
@@ -249,7 +233,7 @@ function MyMap() {
       //     } else setFoundFeatures(false)
       //   })
     }
-    if (view.ready && state.enableSnapping && !foundFeatures) {
+    if (view.ready && state.enableSnapping) {
       addBuffer(mapCursorPointState)
       addPoint(mapCursorPointState)
     } else if (view.ready && !state.enableSnapping) {
@@ -310,7 +294,7 @@ function MyMap() {
     // )
     const pointerEvent = view.on(
       'pointer-move',
-      debounce((event) => {
+      debounce(async (event) => {
         if (state.enableSnapping) {
           event.stopPropagation()
           const screenPoint = {
@@ -319,15 +303,16 @@ function MyMap() {
           } as __esri.MapViewScreenPoint
           const mapCursorPoint: __esri.Point = view.toMap(screenPoint)
           setMapCursorPointState(mapCursorPoint)
-          if (mapCursorPoint && !foundFeatures) {
-            console.log('found inside event', foundFeatures)
-            addPoint(mapCursorPoint)
-            addBuffer(mapCursorPoint)
-          }
-          const deboucedQueryFeature = debounce(() => {
+          console.log('found inside event', foundOneFeatureAtLeast)
+          const deboucedQueryFeature = await debounce(async () => {
             QueryFeature(featureLayerViews, mapCursorPoint, state.distance)
           })
-          deboucedQueryFeature()
+          await deboucedQueryFeature()
+          if (mapCursorPoint && foundOneFeatureAtLeast === -3) {
+            await addPoint(mapCursorPoint)
+            await addBuffer(mapCursorPoint)
+          }
+
           // const setCoordinates = debounce(() => {
           //   dispatch({
           //     type: 'SET_COORDINATES',
