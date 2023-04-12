@@ -304,15 +304,14 @@ function MyMap() {
           const mapCursorPoint: __esri.Point = view.toMap(screenPoint)
           setMapCursorPointState(mapCursorPoint)
           console.log('found inside event', foundOneFeatureAtLeast)
-          const deboucedQueryFeature = await debounce(async () => {
+          const deboucedQueryFeature = debounce(async () => {
             QueryFeature(featureLayerViews, mapCursorPoint, state.distance)
           })
           await deboucedQueryFeature()
           if (mapCursorPoint && foundOneFeatureAtLeast === -3) {
-            await addPoint(mapCursorPoint)
-            await addBuffer(mapCursorPoint)
+            addPoint(mapCursorPoint)
+            addBuffer(mapCursorPoint)
           }
-
           // const setCoordinates = debounce(() => {
           //   dispatch({
           //     type: 'SET_COORDINATES',
