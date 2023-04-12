@@ -1,30 +1,31 @@
-import './App.css'
-import React, { useEffect, useRef, useState, useReducer } from 'react'
-import esriConfig from '@arcgis/core/config'
-import OAuthInfo from '@arcgis/core/identity/OAuthInfo'
-import Portal from '@arcgis/core/portal/Portal'
-import IdentityManager from '@arcgis/core/identity/IdentityManager'
-import MyMap from './components/MyMap'
-import Coordinates from './components/Coordinates'
+import "./App.css";
+import React, { useEffect, useRef, useState, useReducer } from "react";
+import esriConfig from "@arcgis/core/config";
+import OAuthInfo from "@arcgis/core/identity/OAuthInfo";
+import Portal from "@arcgis/core/portal/Portal";
+import IdentityManager from "@arcgis/core/identity/IdentityManager";
+import MyMap from "./components/MyMap";
+import Coordinates from "./components/Coordinates";
 // import appReducer from './reducer/appReducer'
 // import appContext from './context/appContext'
-import { AppProvider } from './context/appContext'
-import { coordinatesType } from './Types'
-const clientId = 'fMBCeXXPTVF5gYLC'
-const clientSecret = '2488e097c412456c8563152543195353'
-const redirectUri = window.location.origin
+import { AppProvider } from "./context/appContext";
+import { coordinatesType } from "./Types";
+import AllUiComponent from "./components/AllUiComponent";
+const clientId = "fMBCeXXPTVF5gYLC";
+const clientSecret = "2488e097c412456c8563152543195353";
+const redirectUri = window.location.origin;
 
 function App() {
   const [coordinates, setCoordinates] = useState<coordinatesType>({
     x: 0,
     y: 0,
-  })
+  });
   // const [appState, appDispatcher] = useReducer(
   //   appReducer,
   //   appContext
   // )
   useEffect(() => {
-    esriConfig.portalUrl = 'https://gis.teklabz.com/portal'
+    esriConfig.portalUrl = "https://gis.teklabz.com/portal";
     // // OAuthInfo
     // const oauthInfo2 = new OAuthInfo({
     //   appId: clientId,
@@ -49,13 +50,13 @@ function App() {
     //   console.log('portal username', portal.user.fullName)
     // })
     // // *************************************** END USE EFFECT ********************************
-  }, [])
+  }, []);
 
   //
   // GET X,Y COORDINATES FROM MY MAP COMPONENT
   const getCoordinates = (data: coordinatesType) => {
-    setCoordinates(data)
-  }
+    setCoordinates(data);
+  };
 
   // HANDLE ON CLICK BUTTON TO SIGN IN ***************
   const handleSignInByPort = async () => {
@@ -64,28 +65,28 @@ function App() {
     //     console.log(res)
     //   })
     //   .catch((e) => console.log('error', e))
-  }
+  };
   // HANDLE ON CLICK BUTTON TO SIGN OUT **************
   const handleSignOutByPort = () => {
     // IdentityManager.destroyCredentials()
     // window.location.reload()
-  }
+  };
   // #####################  RETURN PAGE CONTENT  #############################
   return (
     <>
       <AppProvider>
         <div>
-          <div className='App'>
+          <div className="App">
             <MyMap />
             <Coordinates />
           </div>
         </div>
       </AppProvider>
     </>
-  )
+  );
 }
 
-export default App
+export default App;
 
 //
 //

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react'
-import { AppActionType, InitialStateType } from '../context/appContext'
+import { AppActionType, InitialStateType, useApp } from '../context/appContext'
 
 type inputFieldsType = {
   distance: number
@@ -11,7 +11,9 @@ type AllUiComponentProps = {
   state: InitialStateType
 }
 
-const AllUiComponent = ({ dispatch, state }: AllUiComponentProps) => {
+const AllUiComponent = () => {
+  const { state, dispatch } = useApp()
+
   const [inputFields, setInputFields] = useState<inputFieldsType>({
     distance: state.distance,
     enableSnapping: state.enableSnapping,
@@ -33,8 +35,8 @@ const AllUiComponent = ({ dispatch, state }: AllUiComponentProps) => {
           type: 'SET_ENABLE_SNAPPING',
           payload: updatedEnableSnapping,
         })
+        dispatch({ type: 'SET_DISTANCE', payload: inputFields.distance })
       } else setInputFields({ ...inputFields, [name]: value })
-      // getData(inputFields.enableSnapping)
     },
     [dispatch, inputFields]
   )
