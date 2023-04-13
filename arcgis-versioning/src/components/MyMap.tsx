@@ -11,6 +11,8 @@ import AllUiComponent from './AllUiComponent'
 import Expand from '@arcgis/core/widgets/Expand'
 import FeatureLayerView from 'esri/views/layers/FeatureLayerView'
 import { debounce } from 'lodash'
+import Point from '@arcgis/core/geometry/Point'
+
 const polySym = {
   type: 'simple-fill',
   color: [37, 37, 37, 0.2],
@@ -31,6 +33,14 @@ async function QueryFeature(
   distance: number
 ) {
   let foundFeature = false
+  let globalNearestGeometry: __esri.Geometry = new Point()
+  let globalNearestVertex: __esri.NearestPointResult = {
+    distance: Infinity,
+    coordinate: new Point(),
+    vertexIndex: 0,
+    isEmpty: true,
+  }
+  // globalNearestVertex.distance = 0
   for (let index = 0; index < view.map.allLayers.length; index++) {
     const l = view.map.allLayers.getItemAt(index)
     if (l.type !== 'feature') continue
@@ -45,32 +55,40 @@ async function QueryFeature(
         distance: distance,
         units: 'meters',
       })
-      if (!queryResult || queryResult.features.length === 0) {
-        continue
-      }
-      const geometry = queryResult.features[0].geometry
-      if (geometry.type === 'polygon' || geometry.type === 'polyline') {
-        const nearestVertex = await geometryEngineAsync.nearestVertex(
-          geometry,
+      if (!queryResult || queryResult.features.length === 0) continue
+
+      let nearestGeometry = queryResult.features[0].geometry
+      let nearestVertex = await geometryEngineAsync.nearestVertex(
+        nearestGeometry,
+        mapCursorPoint
+      )
+
+      for (let i = 1; i < queryResult.features.length; i++) {
+        const feature = queryResult.features[i]
+        const tempNearestGeometry = feature.geometry
+        const tempNearestVertex = await geometryEngineAsync.nearestVertex(
+          tempNearestGeometry,
           mapCursorPoint
         )
-        if (nearestVertex.distance <= distance) {
-          addPointAndBuffer(view, nearestVertex.coordinate, distance)
-          foundFeature = true
-          break
-        }
-      } else if (geometry.type === 'point') {
-        addPointAndBuffer(view, geometry as __esri.Point, distance)
-        foundFeature = true
-        break
+        if (tempNearestVertex.distance >= nearestVertex.distance) continue
+        nearestVertex = tempNearestVertex
+        nearestGeometry = tempNearestGeometry
       }
+      if (nearestVertex.distance >= globalNearestVertex.distance) continue
+      globalNearestGeometry = nearestGeometry
+      globalNearestVertex = nearestVertex
     } catch (err) {
       console.log('Erro in for loop', err)
     }
   }
+  if (globalNearestVertex.distance <= distance) foundFeature = true
   if (!foundFeature) {
     addPointAndBuffer(view, mapCursorPoint, distance)
+    return
   }
+  if (globalNearestGeometry.type === 'point')
+    addPointAndBuffer(view, globalNearestGeometry as __esri.Point, distance)
+  else addPointAndBuffer(view, globalNearestVertex.coordinate, distance)
 }
 function addPoint(view: MapView, point: __esri.Point) {
   if (view.graphics.length === 0) {
@@ -156,7 +174,6 @@ function MyMap() {
       group: 'top-right',
       expanded: true,
     })
-
     reactiveUtils.when(
       () => view.ready,
       async () => {
@@ -191,6 +208,7 @@ function MyMap() {
 
     const pointerEvent = view.on(
       'pointer-move',
+      ['Shift'],
       debounce((event) => {
         pointerEventFunction(event, view, state.distance)
       })

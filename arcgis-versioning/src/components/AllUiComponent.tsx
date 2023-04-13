@@ -6,11 +6,6 @@ type inputFieldsType = {
   enableSnapping: boolean
 }
 
-type AllUiComponentProps = {
-  dispatch: React.Dispatch<AppActionType>
-  state: InitialStateType
-}
-
 const AllUiComponent = () => {
   const { state, dispatch } = useApp()
 
