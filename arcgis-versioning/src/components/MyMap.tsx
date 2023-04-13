@@ -198,7 +198,7 @@ function MyMap() {
     return function cleanup() {
       pointerEvent.remove()
     }
-  }, [state, state.distance, state.enableSnapping, view])
+  }, [state.distance, state.enableSnapping, view])
 
   return (
     <div>

@@ -62,6 +62,7 @@ const AllUiComponent = () => {
         name='distance'
         id='distance'
         placeholder='Distance'
+        min='0'
       />
     </div>
   )
