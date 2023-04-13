@@ -208,7 +208,6 @@ function MyMap() {
 
     const pointerEvent = view.on(
       'pointer-move',
-      ['Shift'],
       debounce((event) => {
         pointerEventFunction(event, view, state.distance)
       })
