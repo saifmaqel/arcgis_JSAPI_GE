@@ -12,7 +12,7 @@ import Expand from '@arcgis/core/widgets/Expand'
 import FeatureLayerView from 'esri/views/layers/FeatureLayerView'
 import { debounce } from 'lodash'
 import Point from '@arcgis/core/geometry/Point'
-
+import SketchViewModelUI from './SketchViewModelUI'
 const polySym = {
   type: 'simple-fill',
   color: [37, 37, 37, 0.2],
@@ -27,6 +27,7 @@ const pointSym = {
   size: 7,
 }
 let tempMapCursorPoint: __esri.Point
+// let tempLayer: __esri.FeatureLayerView = new FeatureLayerView()
 async function QueryFeature(
   view: MapView,
   mapCursorPoint: __esri.Point,
@@ -41,6 +42,7 @@ async function QueryFeature(
     isEmpty: true,
   }
   // globalNearestVertex.distance = 0
+  if (!view.map.allLayers) return
   for (let index = 0; index < view.map.allLayers.length; index++) {
     const l = view.map.allLayers.getItemAt(index)
     if (l.type !== 'feature') continue
@@ -145,6 +147,7 @@ function MyMap() {
   const { state } = useApp()
   const mapRef = useRef<HTMLDivElement>(null)
   const expandedRef = useRef<HTMLDivElement>(null)
+  const sketchViewModelUIRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<__esri.MapView>(new MapView())
   useEffect(() => {
     const myMap = new Map({
@@ -189,8 +192,11 @@ function MyMap() {
         })
       }
     )
+
+    view.map.allLayers
     view.ui.add(layerList, 'top-right')
     view.ui.add(expand, 'top-left')
+    view.ui.add(sketchViewModelUIRef.current as HTMLDivElement, 'top-right')
     return () => {
       if (view) {
         view.destroy()
@@ -208,7 +214,7 @@ function MyMap() {
 
     const pointerEvent = view.on(
       'pointer-move',
-      debounce((event) => {
+      debounce((event: __esri.ViewPointerMoveEvent) => {
         pointerEventFunction(event, view, state.distance)
       })
     )
@@ -222,6 +228,9 @@ function MyMap() {
       <div className='MyMap' ref={mapRef}></div>
       <div id='expandedDiv' ref={expandedRef}>
         <AllUiComponent />
+      </div>
+      <div id='sketchViewModel' ref={sketchViewModelUIRef}>
+        <SketchViewModelUI view={view} />
       </div>
     </div>
   )

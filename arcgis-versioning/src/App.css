@@ -12,32 +12,23 @@
 }
 .MyMap {
   width: 100vw;
-  height: 98vh;
+  height: 97vh;
 }
 .coordinates-container {
   width: 100vw;
-  height: 2vh;
+  height: 3vh;
   background-color: rgb(37, 37, 37);
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   justify-content: center;
   align-items: center;
 }
 .coordinates-container input {
   color: black;
 }
-.cursor {
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  top: 0%;
-  left: 0%;
-  margin: -50px 0 0 -50px;
-  background: rgb(37, 37, 37);
-  border-radius: 50%;
-  backface-visibility: hidden;
-  color: black;
-  z-index: 1;
+h1 {
+  font-size: 15px;
+  padding: 0 10px;
 }
 .widget-component {
   padding: 15px 20px;
@@ -61,6 +52,28 @@
   padding: 5px;
   margin: 10px auto;
   border-radius: 3px;
+}
+.SketchViewModelUI-content {
+  background-color: rgb(36, 36, 36);
+  height: 15vh;
+  width: 14vw;
+  display: flex;
+  flex-direction: column;
+}
+.SketchViewModelUI-content h1 {
+  margin: 10px auto;
+}
+.SketchViewModelUI-content button {
+  color: rgb(36, 36, 36);
+  background-color: rgb(243, 243, 243);
+  padding: 0 15px;
+  margin: 0px auto;
+  border-radius: 3px;
+  width: 50%;
+  height: 30px;
+}
+.SketchViewModelUI-content button:hover {
+  background-color: azure;
 }
 /* .coordinates-container h1 {
   margin-right: 20px;

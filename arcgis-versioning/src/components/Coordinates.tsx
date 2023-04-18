@@ -8,8 +8,8 @@ function Coordinates() {
   return (
     <div className='coordinates-container'>
       <div className='coordinates-content'></div>
-      {/* <h1>X: {state.coordinates.x}</h1>
-      <h1>Y: {state.coordinates.y}</h1> */}
+      <h1>X: {state.coordinates.x}</h1>
+      <h1>Y: {state.coordinates.y}</h1>
     </div>
   )
 }
