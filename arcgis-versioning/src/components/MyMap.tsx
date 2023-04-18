@@ -149,6 +149,8 @@ function MyMap() {
   const expandedRef = useRef<HTMLDivElement>(null)
   const sketchViewModelUIRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<__esri.MapView>(new MapView())
+  const [layerLoaded, setLayerLoaded] = useState(false) // new state variable
+
   useEffect(() => {
     const myMap = new Map({
       basemap: 'streets-vector',
@@ -188,6 +190,9 @@ function MyMap() {
         }).then((layer) => {
           layer.load().then((l: __esri.GroupLayer) => {
             view.map.addMany([l])
+            view.whenLayerView(l.allLayers.getItemAt(2)).then((lv) => {
+              setLayerLoaded(true)
+            })
           })
         })
       }
@@ -227,10 +232,10 @@ function MyMap() {
     <div>
       <div className='MyMap' ref={mapRef}></div>
       <div id='expandedDiv' ref={expandedRef}>
-        <AllUiComponent />
+        {layerLoaded && <AllUiComponent />}
       </div>
       <div id='sketchViewModel' ref={sketchViewModelUIRef}>
-        <SketchViewModelUI view={view} />
+        {layerLoaded && <SketchViewModelUI view={view} />}
       </div>
     </div>
   )
