@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react'
-import { AppActionType, InitialStateType, useApp } from '../context/appContext'
+import { useApp } from '../context/appContext'
 
 type inputFieldsType = {
   distance: number

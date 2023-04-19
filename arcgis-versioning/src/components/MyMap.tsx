@@ -190,7 +190,7 @@ function MyMap() {
         }).then((layer) => {
           layer.load().then((l: __esri.GroupLayer) => {
             view.map.addMany([l])
-            view.whenLayerView(l.allLayers.getItemAt(2)).then((lv) => {
+            view.whenLayerView(l.allLayers.getItemAt(2)).then(() => {
               setLayerLoaded(true)
             })
           })
