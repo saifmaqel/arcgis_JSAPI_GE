@@ -59,6 +59,7 @@ function appReducer(
 // ######################### TO HERE
 function AppProvider(props: React.PropsWithChildren<object>) {
   const [state, dispatch] = useReducer(appReducer, initialState)
+
   return (
     <AppContext.Provider value={{ state, dispatch }}>
       {props.children}
@@ -67,6 +68,7 @@ function AppProvider(props: React.PropsWithChildren<object>) {
 }
 function useApp() {
   const context = useContext(AppContext)
+
   if (!context) {
     throw new Error('useCounter must be used within a CounterProvider')
   }
