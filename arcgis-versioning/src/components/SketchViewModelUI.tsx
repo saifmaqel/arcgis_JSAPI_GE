@@ -1,16 +1,19 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import SketchViewModel from '@arcgis/core/widgets/Sketch/SketchViewModel.js'
 import GraphicsLayer from '@arcgis/core/layers/GraphicsLayer'
 // import SnappingControls from '@arcgis/core/widgets/support/SnappingControls'
 import Graphic from '@arcgis/core/Graphic'
 import { SimpleMarkerSymbol } from '@arcgis/core/symbols'
 import FeatureSnappingLayerSource from '@arcgis/core/views/interactive/snapping/FeatureSnappingLayerSource.js'
-import * as reactiveUtils from '@arcgis/core/core/reactiveUtils'
 import FeatureEffect from '@arcgis/core/layers/support/FeatureEffect.js'
 import FeatureFilter from '@arcgis/core/layers/support/FeatureFilter.js'
 
-// ERROR WHEN HOT RELODE WITHOUT CLICKING THE DRAW BUTTON
-//
+const GfxLayerName = 'MYGRAPHICLAYER'
+
+const gfxLayer = new GraphicsLayer({
+  listMode: 'hide',
+  id: GfxLayerName,
+})
 const pointSymbol = new SimpleMarkerSymbol({
   color: 'black',
   size: 7,
@@ -19,75 +22,88 @@ const pointSymbol = new SimpleMarkerSymbol({
 type SketchViewModelUIProps = {
   view: __esri.MapView
 }
-let sketchViewModel: __esri.SketchViewModel = new SketchViewModel()
-const graphicsLayer = new GraphicsLayer()
+let sketchViewModel: __esri.SketchViewModel | undefined = undefined
 const choosenFeaturesLayer = new GraphicsLayer()
 function SketchViewModelUI({ view }: SketchViewModelUIProps) {
-  const [graphicsLayerAdded, setGraphicsLayerAdded] = useState(false)
-
-  const addGraphic = async (event: __esri.SketchViewModelCreateEvent) => {
-    if (event.state !== 'complete') return
-    graphicsLayer.remove(event.graphic)
-    const pointGraphic = new Graphic({
-      geometry: event.graphic.geometry,
-      symbol: pointSymbol,
+  const clearFilter = () => {
+    if (!sketchViewModel) return
+    sketchViewModel.snappingOptions.featureSources =
+      [] as unknown as __esri.Collection<FeatureSnappingLayerSource>
+    view.map.allLayers.forEach((layer) => {
+      if (layer.type === 'feature') {
+        const layerView = view.whenLayerView(
+          layer
+        ) as Promise<__esri.FeatureLayerView>
+        layerView.then((layerView) => {
+          layerView.featureEffect = new FeatureEffect({})
+        })
+      }
     })
-    graphicsLayer.add(pointGraphic)
-    // try {
-    //   sketchViewModel.create('point')
-    // } catch (e) {
-    //   console.log(e)
-    // }
   }
-  const addChoosenFeaturesToMapView = async (
-    choosenFeaturesGraphicsLayer: __esri.GraphicsLayer,
-    view: __esri.MapView,
-    sketchViewModel: __esri.SketchViewModel
-  ) => {
+  const addChoosenFeaturesToMapView = async () => {
+    if (!sketchViewModel) return
     for (let index = 0; index < view.map.allLayers.length; index++) {
       const layer = view.map.allLayers.getItemAt(index)
       const layerView = await view.whenLayerView(layer)
 
       if (layer.type !== 'feature' || !layerView) continue
       const featureLayerView = layerView as __esri.FeatureLayerView
-      const results = await featureLayerView.queryFeatures({
+      const queryFeatures = await featureLayerView.queryFeatures({
         where: 'MOD(OBJECTID, 2) = 0',
         outFields: ['OBJECTID'],
         returnGeometry: true,
       })
-      const featureFilter = {
-        where: 'MOD(OBJECTID, 2) = 0',
+
+      for (let index = 0; index < queryFeatures.features.length; index++) {
+        const feature = queryFeatures.features.at(index) as __esri.Graphic
+
+        if (!feature) continue
+
+        choosenFeaturesLayer.add(feature as __esri.Graphic)
       }
+      const snappingLayer = new FeatureSnappingLayerSource({
+        layer: choosenFeaturesLayer as __esri.GraphicsLayer,
+        enabled: true,
+      })
+      sketchViewModel.snappingOptions.featureSources.push(snappingLayer)
       const featureEffect = new FeatureEffect({
-        filter: new FeatureFilter(featureFilter),
+        filter: new FeatureFilter({
+          where: 'MOD(OBJECTID, 2) = 0',
+        }),
         includedEffect:
           'contrast(120%) drop-shadow(1px, 2px, 3px rgba(0, 0, 0, 0.2))',
         excludedEffect: 'grayscale(100%) opacity(25%)',
       })
 
       featureLayerView.featureEffect = featureEffect
-
-      for (let index = 0; index < results.features.length; index++) {
-        const feature = results.features.at(index) as __esri.Graphic
-
-        if (!feature) continue
-
-        feature.attributes['FTR_TYPE'] = 'SNAPPING'
-        choosenFeaturesGraphicsLayer.add(feature as __esri.Graphic)
-      }
     }
-    const snappingLayer = new FeatureSnappingLayerSource({
-      layer: choosenFeaturesGraphicsLayer as __esri.GraphicsLayer,
-      enabled: true,
+  }
+  const addGraphic = (event: __esri.SketchViewModelCreateEvent) => {
+    if (!sketchViewModel) return
+
+    if (event.state !== 'complete') return
+
+    let foundLayer = view.map.allLayers.find(
+      (l) => l.id === GfxLayerName
+    ) as __esri.GraphicsLayer
+    if (!foundLayer) {
+      foundLayer = gfxLayer
+      view.map.addMany([foundLayer])
+    }
+    foundLayer.remove(event.graphic)
+    const pointGraphic = new Graphic({
+      geometry: event.graphic.geometry,
+      symbol: pointSymbol,
     })
-    sketchViewModel.snappingOptions.featureSources.push(snappingLayer)
+    foundLayer.add(pointGraphic)
+    sketchViewModel.create('point')
   }
 
-  useEffect(() => {
-    const setUpSketchViewModel = async () => {
+  const handleClick = async () => {
+    if (!sketchViewModel) {
       sketchViewModel = new SketchViewModel({
         view: view,
-        layer: graphicsLayer,
+        layer: gfxLayer,
         pointSymbol: new SimpleMarkerSymbol({
           color: [204, 186, 252],
           size: 8,
@@ -101,23 +117,14 @@ function SketchViewModelUI({ view }: SketchViewModelUIProps) {
           featureSources: [],
         } as __esri.SketchViewModelProperties['snappingOptions'],
       })
-      // view.map.addMany([graphicsLayer]) // this added every hot relode try to out it insides
       sketchViewModel.on('create', addGraphic)
     }
-    setUpSketchViewModel()
-    reactiveUtils.once(() => !view.updating).then(setUpSketchViewModel)
-    return function cleanup() {
-      sketchViewModel.destroy()
-    }
-  }, [view])
-
-  const handleClick = async () => {
-    console.log(graphicsLayerAdded) //  DEBUG THIS
-    sketchViewModel.cancel()
-    sketchViewModel.create('point')
-    if (!graphicsLayerAdded) {
-      view.map.addMany([graphicsLayer])
-      setGraphicsLayerAdded(true)
+    if (sketchViewModel.state === 'active') {
+      sketchViewModel.cancel()
+      clearFilter()
+    } else {
+      addChoosenFeaturesToMapView()
+      sketchViewModel.create('point')
     }
   }
   return (
@@ -125,17 +132,6 @@ function SketchViewModelUI({ view }: SketchViewModelUIProps) {
       <div className='SketchViewModelUI-content'>
         <h1>sketchViewModel</h1>
         <button onClick={handleClick}>Draw Point</button>
-        <button
-          onClick={() =>
-            addChoosenFeaturesToMapView(
-              choosenFeaturesLayer,
-              view,
-              sketchViewModel
-            )
-          }
-        >
-          filter features
-        </button>
       </div>
     </div>
   )
