@@ -21,6 +21,10 @@
     "rollup": "^3.20.6"
   },
   "devDependencies": {
+    "@babel/plugin-proposal-decorators": "^7.21.0",
+    "@babel/plugin-syntax-decorators": "^7.21.0",
+    "@babel/plugin-transform-react-jsx": "^7.21.0",
+    "@rollup/plugin-babel": "^6.0.3",
     "@types/arcgis-js-api": "^4.26.0",
     "@types/react": "^18.0.37",
     "@types/react-dom": "^18.0.11",
@@ -36,8 +40,27 @@
     "eslint-plugin-promise": "^6.1.1",
     "eslint-plugin-react": "^7.32.2",
     "eslint-plugin-react-hooks": "^4.6.0",
+    "tslib": "^2.5.0",
     "typescript": "^5.0.4",
     "vite": "^4.2.2",
     "vite-plugin-eslint": "^1.8.1"
+  },
+  "browserslist": {
+    "production": [
+      "last 1 Chrome version",
+      "last 1 Firefox version",
+      "last 2 Edge major versions",
+      "last 2 Safari major versions",
+      "last 2 iOS major versions",
+      "Firefox ESR"
+    ],
+    "development": [
+      "last 1 Chrome version",
+      "last 1 Firefox version",
+      "last 2 Edge major versions",
+      "last 2 Safari major versions",
+      "last 2 iOS major versions",
+      "Firefox ESR"
+    ]
   }
 }

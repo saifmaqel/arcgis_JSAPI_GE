@@ -12,7 +12,12 @@ import Expand from '@arcgis/core/widgets/Expand'
 import FeatureLayerView from 'esri/views/layers/FeatureLayerView'
 import { debounce } from 'lodash'
 import Point from '@arcgis/core/geometry/Point'
-import SketchViewModelUI from './SketchViewModelUI'
+import SketchSnappingViewModel from '../view-model/WidgetViewModel'
+import SketchViewModelUI from '../custom-widgets/SketchSnappingWidget'
+import '../App.css'
+
+// import SketchViewModelUI from './SketchViewModelUI'
+// import SketchViewModelUI from './SketchViewModelUI'
 const polySym = {
   type: 'simple-fill',
   color: [37, 37, 37, 0.2],
@@ -143,6 +148,7 @@ function pointerEventFunction(
   tempMapCursorPoint = mapCursorPoint
   QueryFeature(view, mapCursorPoint, distance)
 }
+const SVM = new SketchSnappingViewModel()
 function MyMap() {
   const { state } = useApp()
   const mapRef = useRef<HTMLDivElement>(null)
@@ -179,6 +185,10 @@ function MyMap() {
       group: 'top-right',
       expanded: true,
     })
+    SVM.view = view
+    const SketchVMUI = new SketchViewModelUI({
+      view: view,
+    })
     reactiveUtils.when(
       () => view.ready,
       async () => {
@@ -198,11 +208,11 @@ function MyMap() {
       }
     )
 
-    view.map.allLayers
+    view.ui.add(SketchVMUI, 'bottom-right')
     view.ui.add(layerList, 'top-right')
     view.ui.add(expand, 'top-left')
     view.ui.add(sketchViewModelUIRef.current as HTMLDivElement, 'top-right')
-    return () => {
+    return function cleanup() {
       if (view) {
         view.destroy()
       }
@@ -235,7 +245,10 @@ function MyMap() {
         {layerLoaded && <AllUiComponent />}
       </div>
       <div id='sketchViewModel' ref={sketchViewModelUIRef}>
-        {layerLoaded && <SketchViewModelUI view={view} />}
+        <button onClick={SVM.handleVMClick}>
+          Draw Points And Start Snapping using Snapping View Model
+        </button>
+        {/* {layerLoaded && <SketchViewModelUI view={view} />} */}
       </div>
     </div>
   )
