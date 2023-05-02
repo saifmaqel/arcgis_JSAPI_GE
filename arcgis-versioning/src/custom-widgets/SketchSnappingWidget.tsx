@@ -19,6 +19,9 @@ interface SketchSnappingParams
   extends __esri.WidgetProperties,
     SketchSnappingViewModelParameters {
   view: __esri.MapView
+  // _SketchSnappingVM: SketchSnappingViewModel
+  // _test: boolean | undefined
+  // _handle: Handles | undefined
 }
 
 console.log('widget loaded')
@@ -36,6 +39,10 @@ class SketchViewModelUI extends Widget {
   @property()
   private _SketchSnappingVM: SketchSnappingViewModel
 
+  @property()
+  private _test: boolean | undefined
+
+  private _handle: Handles | undefined
   //--------------------------------------------------------------------
   //
   //  constructor
@@ -49,23 +56,27 @@ class SketchViewModelUI extends Widget {
       view: this.view,
     })
   }
+  postInitialize() {
+    this._handle = new Handles()
+    this._test = true
+  }
+  // destroy(): void {
+  //   this._handle.destroy()
+  // }
 
   render() {
+    const { _test, _SketchSnappingVM } = this
     return (
       <div id='sketchVM-Widget'>
         <h1>sketchViewModel</h1>
-        <button onClick={this._SketchSnappingVM.handleVMClick}>
-          Draw Points
-        </button>
-        <button
-          onClick={() => {
-            console.log('show')
-          }}
-        >
-          test
-        </button>
+        <button onClick={_SketchSnappingVM.handleVMClick}>Draw Points</button>
+        <button onClick={this._testh}>{_test}</button>
       </div>
     )
+  }
+  private _testh = (): void => {
+    this._test = !this._test
+    console.log('Test button clicked', this._test)
   }
 }
 export default SketchViewModelUI

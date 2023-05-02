@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Map from '@arcgis/core/Map.js'
 import MapView from '@arcgis/core/views/MapView.js'
 import LayerList from '@arcgis/core/widgets/LayerList.js'
@@ -15,147 +15,174 @@ import Point from '@arcgis/core/geometry/Point'
 import SketchSnappingViewModel from '../view-model/WidgetViewModel'
 import SketchViewModelUI from '../custom-widgets/SketchSnappingWidget'
 import '../App.css'
-
-// import SketchViewModelUI from './SketchViewModelUI'
-// import SketchViewModelUI from './SketchViewModelUI'
-const polySym = {
-  type: 'simple-fill',
-  color: [37, 37, 37, 0.2],
-  outline: {
-    color: [0, 0, 0, 0.2],
-    width: 2,
-  },
+import { distance } from 'esri/geometry/geometryEngine'
+type inputFieldsType = {
+  distance: number | undefined
+  enableSnapping: boolean | undefined
 }
-const pointSym = {
-  type: 'simple-marker',
-  color: [37, 37, 37],
-  size: 7,
-}
-let tempMapCursorPoint: __esri.Point
+// const polySym = {
+//   type: 'simple-fill',
+//   color: [37, 37, 37, 0.2],
+//   outline: {
+//     color: [0, 0, 0, 0.2],
+//     width: 2,
+//   },
+// }
+// const pointSym = {
+//   type: 'simple-marker',
+//   color: [37, 37, 37],
+//   size: 7,
+// }
+// let tempMapCursorPoint: __esri.Point
 // let tempLayer: __esri.FeatureLayerView = new FeatureLayerView()
-async function QueryFeature(
-  view: MapView,
-  mapCursorPoint: __esri.Point,
-  distance: number
-) {
-  let foundFeature = false
-  let globalNearestGeometry: __esri.Geometry = new Point()
-  let globalNearestVertex: __esri.NearestPointResult = {
-    distance: Infinity,
-    coordinate: new Point(),
-    vertexIndex: 0,
-    isEmpty: true,
-  }
-  // globalNearestVertex.distance = 0
-  if (!view.map.allLayers) return
-  for (let index = 0; index < view.map.allLayers.length; index++) {
-    const l = view.map.allLayers.getItemAt(index)
-    if (l.type !== 'feature') continue
-    try {
-      const lv: __esri.LayerView = await view.whenLayerView(l)
-      if (lv.destroyed) return
-      const flv = lv as FeatureLayerView
-      const queryResult = await flv.queryFeatures({
-        geometry: mapCursorPoint,
-        returnGeometry: true,
-        spatialRelationship: 'intersects',
-        distance: distance,
-        units: 'meters',
-      })
-      if (!queryResult || queryResult.features.length === 0) continue
+// async function QueryFeature(
+//   view: MapView,
+//   mapCursorPoint: __esri.Point,
+//   distance: number
+// ) {
+//   let foundFeature = false
+//   let globalNearestGeometry: __esri.Geometry = new Point()
+//   let globalNearestVertex: __esri.NearestPointResult = {
+//     distance: Infinity,
+//     coordinate: new Point(),
+//     vertexIndex: 0,
+//     isEmpty: true,
+//   }
+//   // globalNearestVertex.distance = 0
+//   if (!view.map.allLayers) return
+//   for (let index = 0; index < view.map.allLayers.length; index++) {
+//     const l = view.map.allLayers.getItemAt(index)
+//     if (l.type !== 'feature') continue
+//     try {
+//       const lv: __esri.LayerView = await view.whenLayerView(l)
+//       if (lv.destroyed) return
+//       const flv = lv as FeatureLayerView
+//       const queryResult = await flv.queryFeatures({
+//         geometry: mapCursorPoint,
+//         returnGeometry: true,
+//         spatialRelationship: 'intersects',
+//         distance: distance,
+//         units: 'meters',
+//       })
+//       if (!queryResult || queryResult.features.length === 0) continue
 
-      let nearestGeometry = queryResult.features[0].geometry
-      let nearestVertex = await geometryEngineAsync.nearestVertex(
-        nearestGeometry,
-        mapCursorPoint
-      )
+//       let nearestGeometry = queryResult.features[0].geometry
+//       let nearestVertex = await geometryEngineAsync.nearestVertex(
+//         nearestGeometry,
+//         mapCursorPoint
+//       )
 
-      for (let i = 1; i < queryResult.features.length; i++) {
-        const feature = queryResult.features[i]
-        const tempNearestGeometry = feature.geometry
-        const tempNearestVertex = await geometryEngineAsync.nearestVertex(
-          tempNearestGeometry,
-          mapCursorPoint
-        )
-        if (tempNearestVertex.distance >= nearestVertex.distance) continue
-        nearestVertex = tempNearestVertex
-        nearestGeometry = tempNearestGeometry
-      }
-      if (nearestVertex.distance >= globalNearestVertex.distance) continue
-      globalNearestGeometry = nearestGeometry
-      globalNearestVertex = nearestVertex
-    } catch (err) {
-      console.log('Erro in for loop', err)
-    }
-  }
-  if (globalNearestVertex.distance <= distance) foundFeature = true
-  if (!foundFeature) {
-    addPointAndBuffer(view, mapCursorPoint, distance)
-    return
-  }
-  if (globalNearestGeometry.type === 'point')
-    addPointAndBuffer(view, globalNearestGeometry as __esri.Point, distance)
-  else addPointAndBuffer(view, globalNearestVertex.coordinate, distance)
-}
-function addPoint(view: MapView, point: __esri.Point) {
-  if (view.graphics.length === 0) {
-    view.graphics.add(
-      new Graphic({
-        geometry: point,
-        symbol: pointSym,
-      })
-    )
-  } else {
-    const graphic = view.graphics.getItemAt(0)
-    graphic.geometry = point
-  }
-}
-
-function addBuffer(view: MapView, point: __esri.Point, distance: number) {
-  geometryEngineAsync
-    .buffer(point, distance, 'meters', false)
-    .then((buffer) => {
-      if (view.graphics.length <= 1) {
-        const graphic = new Graphic({
-          geometry: buffer as __esri.Polygon,
-          symbol: polySym,
-        })
-        view.graphics.add(graphic)
-      } else {
-        view.graphics.getItemAt(1).geometry = buffer as __esri.Polygon
-      }
-    })
-}
-function addPointAndBuffer(
-  view: MapView,
-  point: __esri.Point,
-  distance: number
-) {
-  addPoint(view, point)
-  addBuffer(view, point, distance)
-}
-function pointerEventFunction(
-  event: __esri.ViewPointerMoveEvent,
-  view: __esri.MapView,
-  distance: number
-) {
-  event.stopPropagation()
-  const screenPoint = {
-    x: event.x,
-    y: event.y,
-  } as __esri.MapViewScreenPoint
-  const mapCursorPoint: __esri.Point = view.toMap(screenPoint)
-  tempMapCursorPoint = mapCursorPoint
-  QueryFeature(view, mapCursorPoint, distance)
-}
-const SVM = new SketchSnappingViewModel()
+//       for (let i = 1; i < queryResult.features.length; i++) {
+//         const feature = queryResult.features[i]
+//         const tempNearestGeometry = feature.geometry
+//         const tempNearestVertex = await geometryEngineAsync.nearestVertex(
+//           tempNearestGeometry,
+//           mapCursorPoint
+//         )
+//         if (tempNearestVertex.distance >= nearestVertex.distance) continue
+//         nearestVertex = tempNearestVertex
+//         nearestGeometry = tempNearestGeometry
+//       }
+//       if (nearestVertex.distance >= globalNearestVertex.distance) continue
+//       globalNearestGeometry = nearestGeometry
+//       globalNearestVertex = nearestVertex
+//     } catch (err) {
+//       console.log('Erro in for loop', err)
+//     }
+//   }
+//   if (globalNearestVertex.distance <= distance) foundFeature = true
+//   if (!foundFeature) {
+//     addPointAndBuffer(view, mapCursorPoint, distance)
+//     return
+//   }
+//   if (globalNearestGeometry.type === 'point')
+//     addPointAndBuffer(view, globalNearestGeometry as __esri.Point, distance)
+//   else addPointAndBuffer(view, globalNearestVertex.coordinate, distance)
+// }
+// function addPoint(view: MapView, point: __esri.Point) {
+//   if (view.graphics.length === 0) {
+//     view.graphics.add(
+//       new Graphic({
+//         geometry: point,
+//         symbol: pointSym,
+//       })
+//     )
+//   } else {
+//     const graphic = view.graphics.getItemAt(0)
+//     graphic.geometry = point
+//   }
+// }
+// function addBuffer(view: MapView, point: __esri.Point, distance: number) {
+//   geometryEngineAsync
+//     .buffer(point, distance, 'meters', false)
+//     .then((buffer) => {
+//       if (view.graphics.length <= 1) {
+//         const graphic = new Graphic({
+//           geometry: buffer as __esri.Polygon,
+//           symbol: polySym,
+//         })
+//         view.graphics.add(graphic)
+//       } else {
+//         view.graphics.getItemAt(1).geometry = buffer as __esri.Polygon
+//       }
+//     })
+// }
+// function addPointAndBuffer(
+//   view: MapView,
+//   point: __esri.Point,
+//   distance: number
+// ) {
+//   addPoint(view, point)
+//   addBuffer(view, point, distance)
+// }
+// function pointerEventFunction(
+//   event: __esri.ViewPointerMoveEvent,
+//   view: __esri.MapView,
+//   distance: number
+// ) {
+//   event.stopPropagation()
+//   const screenPoint = {
+//     x: event.x,
+//     y: event.y,
+//   } as __esri.MapViewScreenPoint
+//   const mapCursorPoint: __esri.Point = view.toMap(screenPoint)
+//   tempMapCursorPoint = mapCursorPoint
+//   QueryFeature(view, mapCursorPoint, distance)
+// }
+const sketchSVM = new SketchSnappingViewModel()
 function MyMap() {
-  const { state } = useApp()
+  // const { state } = useApp()
   const mapRef = useRef<HTMLDivElement>(null)
-  const expandedRef = useRef<HTMLDivElement>(null)
+  // const expandedRef = useRef<HTMLDivElement>(null)
   const sketchViewModelUIRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<__esri.MapView>(new MapView())
   const [layerLoaded, setLayerLoaded] = useState(false) // new state variable
+  // console.log(SVM.);
+
+  const [inputFields, setInputFields] = useState<inputFieldsType>({
+    distance: 10,
+    enableSnapping: false,
+  })
+  const handleInputChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      sketchSVM.enableSnapping = inputFields.enableSnapping
+      sketchSVM.distance = inputFields.distance
+      const { name, value } = event.target
+      if (event.target.name === 'enableSnapping') {
+        const updatedEnableSnapping = !inputFields.enableSnapping
+        setInputFields({
+          ...inputFields,
+          enableSnapping: updatedEnableSnapping,
+        })
+
+        sketchSVM.enableSnapping = updatedEnableSnapping
+      } else {
+        setInputFields({ ...inputFields, [name]: value })
+        sketchSVM.distance = parseInt(value)
+      }
+    },
+    [inputFields]
+  )
 
   useEffect(() => {
     const myMap = new Map({
@@ -179,16 +206,32 @@ function MyMap() {
         }
       },
     })
-    const expand: __esri.Expand = new Expand({
-      content: expandedRef.current as HTMLDivElement,
-      view: view,
-      group: 'top-right',
-      expanded: true,
-    })
-    SVM.view = view
-    const SketchVMUI = new SketchViewModelUI({
-      view: view,
-    })
+
+    // const expand: __esri.Expand = new Expand({
+    //   content: expandedRef.current as HTMLDivElement,
+    //   view: view,
+    //   group: 'top-right',
+    //   expanded: true,
+    // })
+    // SVM = new SketchSnappingViewModel({
+    //   view: view,
+    //   enableSnapping: inputFields.enableSnapping,
+    //   distance: inputFields.distance,
+    // })
+
+    sketchSVM.view = view
+    // sketchSVM.enableSnapping = inputFields.enableSnapping
+    // sketchSVM.distance = inputFields.distance
+    // const snappingExpand = new Expand({
+    //   view: view,
+    //   content: sketchSVM.snappingControls,
+    //   expanded: true,
+    //   expandIconClass: 'esri-icon-settings2',
+    //   expandTooltip: 'Snapping Controls',
+    // })
+    // const SketchVMUI = new SketchViewModelUI({
+    //   view: view,
+    // })
     reactiveUtils.when(
       () => view.ready,
       async () => {
@@ -207,47 +250,94 @@ function MyMap() {
         })
       }
     )
-
-    view.ui.add(SketchVMUI, 'bottom-right')
+    // view.ui.add(SketchVMUI, 'bottom-right')
+    // view.ui.add(expand, 'top-left')
     view.ui.add(layerList, 'top-right')
-    view.ui.add(expand, 'top-left')
     view.ui.add(sketchViewModelUIRef.current as HTMLDivElement, 'top-right')
+    // view.ui.add(snappingExpand, 'bottom-left')
     return function cleanup() {
       if (view) {
         view.destroy()
+        sketchSVM.destroy()
       }
     }
   }, [])
 
-  useEffect(() => {
-    if (!state.enableSnapping) {
-      view.graphics.removeAll()
-      return
-    }
-    if (tempMapCursorPoint)
-      addPointAndBuffer(view, tempMapCursorPoint, state.distance)
+  // useEffect(() => {
+  //   if (!state.enableSnapping) {
+  //     view.graphics.removeAll()
+  //     return
+  //   }
+  //   if (tempMapCursorPoint)
+  //     addPointAndBuffer(view, tempMapCursorPoint, state.distance)
 
-    const pointerEvent = view.on(
-      'pointer-move',
-      debounce((event: __esri.ViewPointerMoveEvent) => {
-        pointerEventFunction(event, view, state.distance)
-      })
-    )
-    return function cleanup() {
-      pointerEvent.remove()
-    }
-  }, [state.distance, state.enableSnapping, view])
+  //   const pointerEvent = view.on(
+  //     'pointer-move',
+  //     debounce((event: __esri.ViewPointerMoveEvent) => {
+  //       pointerEventFunction(event, view, state.distance)
+  //     })
+  //   )
+  //   return function cleanup() {
+  //     pointerEvent.remove()
+  //   }
+  // }, [state.distance, state.enableSnapping, view])
 
   return (
     <div>
       <div className='MyMap' ref={mapRef}></div>
-      <div id='expandedDiv' ref={expandedRef}>
+      {/* <div id='expandedDiv' ref={expandedRef}>
         {layerLoaded && <AllUiComponent />}
-      </div>
+      </div> */}
       <div id='sketchViewModel' ref={sketchViewModelUIRef}>
-        <button onClick={SVM.handleVMClick}>
-          Draw Points And Start Snapping using Snapping View Model
-        </button>
+        {layerLoaded && (
+          <div>
+            <button
+              onClick={() => {
+                sketchSVM.drawGraphic('point')
+              }}
+            >
+              Draw Point
+            </button>
+            <button
+              onClick={() => {
+                sketchSVM.drawGraphic('polyline')
+              }}
+            >
+              Draw Polyline
+            </button>
+            <button
+              onClick={() => {
+                sketchSVM.drawGraphic('polygon')
+              }}
+            >
+              Draw Polygon
+            </button>
+            <button onClick={sketchSVM.filterFeatures}>Filter Graphics</button>
+            <button onClick={sketchSVM.undo}>Undo</button>
+            <button onClick={sketchSVM.redo}>Redo</button>
+            <div className='enable-snapping'>
+              <label htmlFor='enable-snapping'>enable snapping: </label>
+              <input
+                type='checkbox'
+                name='enableSnapping'
+                id='enable-snapping'
+                checked={inputFields.enableSnapping}
+                onChange={handleInputChange}
+              />
+            </div>
+            <label htmlFor='distance'>buffer size</label>
+            <input
+              type='number'
+              value={inputFields.distance}
+              onChange={handleInputChange}
+              name='distance'
+              id='distance'
+              placeholder='Distance'
+              min='0'
+              style={{ color: 'black' }}
+            />
+          </div>
+        )}
         {/* {layerLoaded && <SketchViewModelUI view={view} />} */}
       </div>
     </div>
